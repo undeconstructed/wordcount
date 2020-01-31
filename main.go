@@ -4,59 +4,139 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 )
 
 const aA = 'a' - 'A'
 
+func equ(l, r []byte) bool {
+	ll, lr := len(l), len(r)
+	if ll != lr {
+		return false
+	}
+	for i := 0; i < ll; i++ {
+		if l[i] != r[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// compares two byte strings
+func cmp(l, r []byte) int {
+	ll, lr := len(l), len(r)
+	len := ll
+	if lr < len {
+		len = lr
+	}
+	for i := 0; i < len; i++ {
+		if l[i] < r[i] {
+			return -1
+		}
+		if l[i] > r[i] {
+			return 1
+		}
+	}
+	if ll < lr {
+		return -1
+	}
+	if lr < ll {
+		return 1
+	}
+	return 0
+}
+
 type entry struct {
 	s []byte
 	n int
+	// left and right children
+	l, r int
 }
 
+// wordMap combines list and binary tree in place
 type wordMap struct {
 	d []entry
 }
 
-func (m *wordMap) inc(s []byte) {
+func newWordMap() *wordMap {
+	return &wordMap{
+		d: []entry{
+			// root node
+			entry{l: -1, r: -1},
+		},
+	}
+}
 
-	// XXX horrible slow lookup
-check:
-	for n, e := range m.d {
-		if len(e.s) == len(s) {
-			for i := 0; i < len(s); i++ {
-				if e.s[i] != s[i] {
-					continue check
-				}
-			}
+// inc adds one to the count associated with the byte string
+func (m *wordMap) inc(s []byte) {
+	n := 0
+
+	for {
+		d := cmp(s, m.d[n].s)
+		if d == 0 {
 			m.d[n].n++
 			return
+		} else if d < 0 {
+			nx := m.d[n].l
+			if nx == -1 {
+				m.d[n].l = len(m.d)
+				break
+			}
+			n = nx
+		} else {
+			nx := m.d[n].r
+			if nx == -1 {
+				m.d[n].r = len(m.d)
+				break
+			}
+			n = nx
 		}
 	}
 
 	// s is a temporary buffer, so copy
 	c := make([]byte, len(s))
 	copy(c, s)
-	m.d = append(m.d, entry{
-		s: c,
-		n: 1,
-	})
+	m.d = append(m.d, entry{s: c, n: 1, l: -1, r: -1})
 }
 
-func (m *wordMap) topTwenty() []entry {
-	// XXX library function to remove
-	sort.Slice(m.d, func(i int, j int) bool {
-		return m.d[i].n > m.d[j].n
-	})
+// inserts an entry into the right place in a sorted list
+func insertIntoTopList(list []entry, toInsert entry) {
+	// find the first entry the new one is bigger than
+	for i, e := range list {
+		if toInsert.n > e.n {
+			// then move all subsequent entries down
+			for i2 := len(list) - 1; i2 > i; i2-- {
+				// starting at the end, so that we don't overwrite
+				list[i2] = list[i2-1]
+			}
+			list[i] = toInsert
+			return
+		}
+	}
+	// if we haven't returned, then this must go in the last place
+	list[len(list)] = toInsert
+}
 
-	n := 20
-	if n > len(m.d) {
-		n = len(m.d)
+// topN returns a sorted list of the N most used words
+func (m *wordMap) topN(count int) []entry {
+	// topN can't be bigger than total words found
+	if max := len(m.d) - 1; count > max {
+		count = max
 	}
 
-	return m.d[0:n]
+	out := make([]entry, count)
+
+	for _, e := range m.d {
+		// see if this entry could be in the topN
+		if e.n > out[count-1].n {
+			// if it can, then insert in tht correct place
+			insertIntoTopList(out, e)
+		}
+	}
+
+	return out
 }
 
+// fatalf just a helper for crashing out
 func fatalf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)
 	os.Exit(1)
@@ -74,14 +154,14 @@ func main() {
 	}
 	defer fi.Close()
 
-	// file buffer for readin through
+	// file buffer for reading through
 	fb := make([]byte, 2<<12)
 	// word buffer for copying each word, in standard form
 	wb := make([]byte, 2<<8)
 	// word slice for managing word buffer
 	w := wb[0:0]
 	// word map for storing results
-	m := &wordMap{}
+	m := newWordMap()
 
 	for {
 		// read a chunk of the file
@@ -114,7 +194,7 @@ func main() {
 		}
 	}
 
-	for _, e := range m.topTwenty() {
+	for _, e := range m.topN(20) {
 		fmt.Printf("% 7d %s\n", e.n, e.s)
 	}
 }
