@@ -28,8 +28,8 @@ func TestCmp(t *testing.T) {
 
 func TestWordMap(t *testing.T) {
 	m := newWordMap()
-	m.inc([]byte{1})
 	m.inc([]byte{2})
+	m.inc([]byte{1})
 	m.inc([]byte{1})
 	m.inc([]byte{1})
 	m.inc([]byte{3, 4, 5})

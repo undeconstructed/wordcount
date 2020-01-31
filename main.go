@@ -68,21 +68,27 @@ func newWordMap() *wordMap {
 
 // inc adds one to the count associated with the byte string
 func (m *wordMap) inc(s []byte) {
+	// starting at the root node ...
 	n := 0
 
 	for {
+		// compare the new string
 		d := cmp(s, m.d[n].s)
 		if d == 0 {
+			// if match, increment
 			m.d[n].n++
 			return
 		} else if d < 0 {
+			// else maybe descend the left branch
 			nx := m.d[n].l
 			if nx == -1 {
+				// if there is no left branch, then we will make one
 				m.d[n].l = len(m.d)
 				break
 			}
 			n = nx
 		} else {
+			// same on the right
 			nx := m.d[n].r
 			if nx == -1 {
 				m.d[n].r = len(m.d)
@@ -92,9 +98,13 @@ func (m *wordMap) inc(s []byte) {
 		}
 	}
 
+	// if not returned, then need a new node
+
 	// s is a temporary buffer, so copy
 	c := make([]byte, len(s))
 	copy(c, s)
+
+	// insert the new node, the parent will already be pointing to it
 	m.d = append(m.d, entry{s: c, n: 1, l: -1, r: -1})
 }
 
