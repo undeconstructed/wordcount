@@ -204,6 +204,11 @@ func main() {
 		}
 	}
 
+	// technically input could end on a word character
+	if len(w) > 0 {
+		m.inc(w)
+	}
+
 	for _, e := range m.topN(20) {
 		fmt.Printf("% 7d %s\n", e.n, e.s)
 	}
